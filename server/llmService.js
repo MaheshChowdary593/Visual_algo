@@ -22,29 +22,50 @@ function getMistralClient() {
  * Ensures the JSON structure is correct and follows the expected schema.
  */
 function validateVisualizationData(data) {
-    if (!data || typeof data !== 'object') throw new Error("Output is not a valid object");
-    if (!data.visualization) throw new Error("Missing 'visualization' field");
+    if (!data || typeof data !== 'object') throw new Error("[v2.1] Output is not a valid object");
+    if (!data.visualization) throw new Error("Missing 'visualization' field in root object");
 
     const viz = data.visualization;
     const requiredFields = ['title', 'type', 'steps'];
     for (const field of requiredFields) {
-        if (!viz[field]) throw new Error(`Missing required field: ${field}`);
+        if (!viz[field]) throw new Error(`Visualization is missing required field: '${field}'`);
     }
 
-    if (!Array.isArray(viz.steps) || viz.steps.length === 0) {
-        throw new Error("Visualization has no steps");
+    if (!Array.isArray(viz.steps)) {
+        throw new Error("Visualization 'steps' field must be an array");
     }
 
-    // Type-specific validation
-    if (viz.type === 'tree') {
-        viz.steps.forEach((step, idx) => {
-            if (!Array.isArray(step.nodes)) throw new Error(`Step ${idx} in tree visualization is missing 'nodes' array`);
-        });
-    } else if (viz.type === 'array') {
-        viz.steps.forEach((step, idx) => {
-            if (!Array.isArray(step.state)) throw new Error(`Step ${idx} in array visualization is missing 'state' array`);
-        });
+    if (viz.steps.length === 0) {
+        throw new Error("Visualization must have at least one step");
     }
+
+    // Type-specific validation for steps
+    viz.steps.forEach((step, idx) => {
+        if (viz.type === 'tree') {
+            if (!Array.isArray(step.nodes)) throw new Error(`[v2.1] Step ${idx} is missing 'nodes' for tree`);
+            step.nodes.forEach((n, ni) => {
+                if (n.id === undefined || n.val === undefined) throw new Error(`Step ${idx} node ${ni} is missing id or val`);
+                // Binary trees expect left/right pointers (IDs)
+                if (n.left === undefined && n.right === undefined && n.children === undefined) {
+                    console.warn(`Step ${idx} node ${ni} has no structure (left/right/children)`);
+                }
+            });
+        } else if (viz.type === 'array' || viz.type === 'stack' || viz.type === 'queue') {
+            if (!Array.isArray(step.state)) throw new Error(`Step ${idx} is missing 'state' (array) for ${viz.type}`);
+        } else if (viz.type === 'linked-list') {
+            if (!Array.isArray(step.nodes)) throw new Error(`Step ${idx} is missing 'nodes' for linked-list`);
+            step.nodes.forEach((n, ni) => {
+                if (n.id === undefined || n.val === undefined) throw new Error(`Step ${idx} node ${ni} is missing id or val`);
+            });
+        } else if (viz.type === 'graph') {
+            if (!Array.isArray(step.nodes)) throw new Error(`Step ${idx} is missing 'nodes' for graph`);
+            if (!Array.isArray(step.edges)) throw new Error(`Step ${idx} is missing 'edges' for graph`);
+        } else if (viz.type === 'recursion') {
+            if (!Array.isArray(step.stack)) throw new Error(`Step ${idx} is missing 'stack' for recursion`);
+        } else if (viz.type === 'hashmap') {
+            if (!Array.isArray(step.entries)) throw new Error(`Step ${idx} is missing 'entries' for hashmap`);
+        }
+    });
 
     return data;
 }
@@ -58,21 +79,43 @@ function extractJSON(text) {
         throw new Error(`Expected string or object, got ${typeof text}`);
     }
 
+    // Try normal parse
     try {
         return JSON.parse(text);
     } catch (e) {
-        const jsonMatch = text.match(/\{[\s\S]*\}/);
+        console.warn("[llmService] Simple JSON.parse failed, trying extraction logic...");
+
+        // 1. Try to extract from markdown code blocks
+        const mdMatch = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+        let target = mdMatch ? mdMatch[1] : text;
+
+        // 2. Try to find anything between the first { and last }
+        const jsonMatch = target.match(/\{[\s\S]*\}/);
         if (jsonMatch) {
+            let jsonStr = jsonMatch[0];
+
             try {
-                return JSON.parse(jsonMatch[0]);
+                return JSON.parse(jsonStr);
             } catch (innerError) {
-                console.error("[llmService] Failed to parse extracted JSON block:", innerError.message);
+                // 3. Last ditch: some basic regex cleaning for common LLM JSON mistakes
+                // Strip trailing commas before closing braces/brackets
+                jsonStr = jsonStr.replace(/,\s*([\}\]])/g, '$1');
+
+                try {
+                    return JSON.parse(jsonStr);
+                } catch (lastError) {
+                    console.error("[llmService] Final JSON parse attempt failed:", lastError.message);
+                }
             }
         }
-        throw new Error("Invalid JSON format in AI response");
+        throw new Error("Invalid JSON format in AI response. Extraction failed.");
     }
 }
 
+/**
+ * Stage 1: LLM Generation
+ * Generates a step-by-step DSA visualization data and code using Mistral AI.
+ */
 /**
  * Stage 1: LLM Generation
  * Generates a step-by-step DSA visualization data and code using Mistral AI.
@@ -84,28 +127,44 @@ async function processDSAQuery(query, history = []) {
     }
 
     const systemPrompt = `
-You are a DSA expert. Provide a MODERATE, clear explanation for the given query.
+You are a Data Structures and Algorithms (DSA) visualization expert. 
+Your task is to provide a comprehensive explanation and a structured dataset for rendering a step-by-step visualization.
 
-RETURN ONLY A VALID JSON OBJECT.
+CRITICAL: RETURN ONLY A VALID JSON OBJECT. NO MARKDOWN OUTSIDE THE JSON.
 
-FORMAT:
+SCHEMA REQUIREMENTS:
 {
-  "message": "# 💡 Main Explanation\nProvide a concise 1-2 paragraph description of the algorithm/concept.\n\n# 🏗️ Example\nA concrete example with a specific set of numbers or nodes.\n\n# 📊 Dry Run Output\nA high-level summary of the steps taken in the visualization.",
-  "code": "A clean Java solution with helpful comments.",
+  "message": "Markdown explanation with headings: # 💡 Intuition, # 🏗️ Example, # 📊 Dry Run Output",
+  "code": "A complete Java code implementation.",
   "visualization": {
-    "title": "Algorithm Name",
-    "description": "Short summary of this specific example.",
-    "type": "array" | "tree" | "linked-list" | "queue" | "stack" | "graph" | "hashmap" | "recursion",
+    "title": "Clear Title",
+    "description": "Short summary.",
+    "type": "array" | "tree" | "linked-list" | "stack" | "queue" | "recursion" | "graph" | "hashmap",
     "timeComplexity": "O(...)",
     "spaceComplexity": "O(...)",
-    "steps": []
+    "steps": [
+      {
+        "description": "Step detail",
+        "state": [...], // Required for array, stack, queue
+        "nodes": [...], // Required for tree, graph, linked-list
+        "edges": [...], // Required for graph
+        "stack": [...], // Required for recursion
+        "entries": [...], // Required for hashmap
+        "activeIndices": [0, 1], // Optional for array
+        "activeNodeId": "node1"   // Optional for tree, graph, linked-list
+      }
+    ]
   }
 }
 
---- EDUCATIONAL GUIDELINES ---
-- Be concise but accurate. Avoid "clumsy" or overly long text.
-- Use JAVA for code.
-- Visualization must have meaningful steps that match the explanation.
+DATA GUIDELINES (STRICT ADHERENCE):
+- 'array': 'state' is an array of primitives [1, 2, 3].
+- 'tree': 'nodes' must be an array of { id: "1", val: 10, left: "2", right: "3" }. Use IDs for pointers.
+- 'linked-list': 'nodes' must be an array of { id: "1", val: 10, next: true/false }.
+- 'graph': 'nodes' must have { id, val, x, y } (coords 0-500), 'edges' must have { from, to }.
+- 'recursion': 'stack' must be an array of { fn: "name", args: {n:5}, val: null }.
+- 'hashmap': 'entries' must be an array of { key: "k", val: "v", hash: index }.
+- Ensure 'steps' explicitly capture the progression of the algorithm.
 `;
 
     const messages = [
@@ -118,28 +177,36 @@ FORMAT:
     ];
 
     try {
-        console.log(`[Mistral AI] Processing query for ultra-detailed explanation...`);
+        console.log("=========================================");
+        console.log("🚀 [v2.1] PROCESSING QUERY:", query);
+        console.log("=========================================");
 
         const response = await mistral.chat({
             model: "mistral-large-latest",
             messages,
             responseFormat: { type: "json_object" },
-            temperature: 0.3
+            temperature: 0.2
         });
 
         const responseContent = response.choices[0].message.content;
         const parsed = extractJSON(responseContent);
 
         // Stage 2: Validation
-        console.log(`[Mistral AI] Validating response...`);
+        console.log(`[Mistral AI] Validating response schema...`);
         const validatedData = validateVisualizationData(parsed);
 
-        console.log(`[Mistral AI] Success - Detailed response ready`);
+        console.log(`[Mistral AI] Success - Response validated`);
         return validatedData;
 
     } catch (error) {
         console.error(`[Mistral AI] Pipeline Error:`, error.message);
-        return getMockBubbleSort(`Mistral AI Error: ${error.message}. Showing fallback demo.`);
+        // Log the failure for debugging
+        const fs = require('fs');
+        const errorLog = `\n--- ERROR [${new Date().toISOString()}] ---\nQuery: ${query}\nError: ${error.message}\n` +
+            `Response: ${responseContent || "N/A"}\n------------------\n`;
+        fs.appendFileSync('server_error.log', errorLog);
+
+        return getMockBubbleSort(`Mistral AI Error [v2.1]: ${error.message}. Showing fallback demo.`);
     }
 }
 
