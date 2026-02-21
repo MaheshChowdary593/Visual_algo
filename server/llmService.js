@@ -184,7 +184,16 @@ DATA GUIDELINES (STRICT ADHERENCE):
         console.log("History length:", history.length);
         console.log("=========================================");
 
-        const response = await mistral.chat({
+        // Try both possible SDK method names
+        const chatMethod = (mistral.chat && mistral.chat.complete) ?
+            mistral.chat.complete.bind(mistral.chat) :
+            (mistral.chat ? mistral.chat.bind(mistral) : null);
+
+        if (!chatMethod) {
+            throw new Error("Mistral SDK method 'chat.complete' or 'chat' not found. Check SDK version.");
+        }
+
+        const response = await chatMethod({
             model: "mistral-large-latest",
             messages,
             responseFormat: { type: "json_object" },
@@ -203,12 +212,28 @@ DATA GUIDELINES (STRICT ADHERENCE):
 
     } catch (error) {
         console.error(`[Mistral AI] Pipeline Error:`, error && error.message ? error.message : error);
-        // Log the failure for debugging with safe access to responseContent
+
+        // Safe logging to avoid circular reference errors in JSON.stringify
         const fs = require('fs');
-        const respInfo = (error && error.response) ? JSON.stringify(error.response) : (responseContent || "N/A");
-        const errorLog = `\n--- ERROR [${new Date().toISOString()}] ---\nQuery: ${query}\nError: ${error && error.stack ? error.stack : error}\n` +
-            `Response: ${respInfo}\n------------------\n`;
-        try { fs.appendFileSync('server_error.log', errorLog); } catch (e) { console.error('Failed to write error log', e); }
+        const errorDetail = error && error.response && error.response.data ?
+            JSON.stringify(error.response.data) :
+            (error && error.message ? error.message : "Unknown Error");
+
+        const errorLog = `\n--- ERROR [${new Date().toISOString()}] ---\n` +
+            `Query: ${query}\n` +
+            `Error: ${errorDetail}\n` +
+            `Stack: ${error && error.stack ? error.stack : 'N/A'}\n` +
+            `------------------\n`;
+
+        try {
+            // Only try to write to file if in dev or if we have permissions
+            if (process.env.NODE_ENV !== 'production') {
+                fs.appendFileSync('server_error.log', errorLog);
+            }
+            console.error(errorLog);
+        } catch (e) {
+            console.error('Failed to log error to console/file:', e.message);
+        }
 
         return getMockBubbleSort(`Mistral AI Error [v2.1]: ${error && error.message ? error.message : String(error)}. Showing fallback demo.`);
     }
