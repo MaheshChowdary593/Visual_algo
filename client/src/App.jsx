@@ -80,7 +80,10 @@ function App() {
         setError(null);
 
         try {
-            const apiBase = import.meta.env.VITE_API_URL || '';
+            let apiBase = import.meta.env.VITE_API_URL || '';
+            // Remove trailing slash if present
+            if (apiBase.endsWith('/')) apiBase = apiBase.slice(0, -1);
+
             const response = await axios.post(`${apiBase}/api/process-query`, {
                 query,
                 history: currentHistory.slice(-5)

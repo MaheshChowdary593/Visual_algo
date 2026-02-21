@@ -181,6 +181,7 @@ DATA GUIDELINES (STRICT ADHERENCE):
     try {
         console.log("=========================================");
         console.log("🚀 [v2.1] PROCESSING QUERY:", query);
+        console.log("History length:", history.length);
         console.log("=========================================");
 
         const response = await mistral.chat({
