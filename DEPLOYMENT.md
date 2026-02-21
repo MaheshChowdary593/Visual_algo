@@ -11,9 +11,10 @@ Follow these "pin to pin" steps to deploy your project.
     - Choose **Build and deploy from a Git repository**.
     - Connect your project repository.
 4.  **Service Settings**:
+    - **Connect the Whole Repo**: Yes, connect your entire GitHub repository.
+    - **Root Directory**: Set this to `server`. **This is the most important step!** It tells Render to only look inside the server folder for the backend.
     - **Name**: `visual-algo-backend`
     - **Language**: `Node`
-    - **Root Directory**: `server`
     - **Build Command**: `npm install`
     - **Start Command**: `npm start`
 5.  **Environment Variables**:
@@ -29,8 +30,8 @@ Follow these "pin to pin" steps to deploy your project.
     - Click **Add New** -> **Project**.
     - Import your project repository.
 3.  **Project Settings**:
+    - **Root Directory**: Click "Edit" and select the `client` folder. This tells Vercel your website code is in that specific folder.
     - **Framework Preset**: `Vite` (should be auto-detected).
-    - **Root Directory**: `client`
 4.  **Environment Variables**:
     - Add a new variable:
         - **Key**: `VITE_API_URL`
