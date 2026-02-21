@@ -1,4 +1,4 @@
-const Mistral = require('@mistralai/mistralai');
+const { Mistral } = require('@mistralai/mistralai');
 
 let mistralInstance = null;
 
@@ -8,10 +8,19 @@ function getMistralClient() {
     const key = process.env.MISTRAL_API_KEY;
     if (key && key !== 'your_api_key_here' && key.length > 10) {
         console.log(`[Mistral SDK] Initializing with key ending in ...${key.slice(-4)}`);
-        // Handle both possible export patterns for the SDK
-        const ClientClass = Mistral.default || Mistral;
-        mistralInstance = new ClientClass(key);
-        return mistralInstance;
+
+        try {
+            // Newest SDK pattern
+            mistralInstance = new Mistral({ apiKey: key });
+            return mistralInstance;
+        } catch (e) {
+            console.warn("[Mistral SDK] New initialization pattern failed, trying legacy...");
+            // Fallback for different versions
+            const MistralLib = require('@mistralai/mistralai');
+            const ClientClass = MistralLib.Mistral || MistralLib.default || MistralLib;
+            mistralInstance = new ClientClass(key);
+            return mistralInstance;
+        }
     }
     console.warn('[Mistral SDK] No valid API key found or placeholder "your_api_key_here" detected.');
     return null;
