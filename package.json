@@ -5,6 +5,7 @@
     "scripts": {
         "install-all": "npm install && cd client && npm install && cd ../server && npm install",
         "dev": "concurrently \"npm run dev --prefix client\" \"node server/index.js\"",
+        "build": "npm --prefix client run build",
         "client": "npm run dev --prefix client",
         "server": "node server/index.js"
     },

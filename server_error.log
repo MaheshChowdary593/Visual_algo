@@ -1,1 +1,48 @@
 {"message":"# ⚠️ System Message\nMistral AI Error: mistral.chat.complete is not a function. Showing fallback demo.\n\n# 💡 Intuition\nBubble Sort is the simplest sorting algorithm that works by repeatedly swapping the adjacent elements if they are in wrong order. Imagine a bubble rising to the surface; in each pass, the largest unsorted element 'bubbles' to its correct position.","code":"public class Demo {\n    public static void sort(int[] arr) {\n        // Basic Bubble Sort logic\n    }\n}","visualization":{"title":"Fallback Demo","type":"array","timeComplexity":"O(N^2)","spaceComplexity":"O(1)","description":"A robust example to demonstrate the logic clearly.","steps":[{"state":[8,3,11,4,1,9,2,7],"activeIndices":[],"description":"Initial setup."},{"state":[3,8,11,4,1,9,2,7],"activeIndices":[0,1],"description":"Comparing 8 and 3."}]}}
+--- ERROR [2026-02-19T13:36:22.381Z] ---
+Query: explain  morries traversal
+Error: MistralAPIError: HTTP error! status: 401 Response: 
+{"detail":"Unauthorized"}
+    at MistralClient._request (file:///C:/Users/Dell/Documents/visual_fast/server/node_modules/@mistralai/mistralai/src/client.js:132:17)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async MistralClient.chat (file:///C:/Users/Dell/Documents/visual_fast/server/node_modules/@mistralai/mistralai/src/client.js:255:22)
+    at async processDSAQuery (C:\Users\Dell\Documents\visual_fast\server\llmService.js:186:26)
+    at async C:\Users\Dell\Documents\visual_fast\server\index.js:22:24
+Response: N/A
+------------------
+
+--- ERROR [2026-02-19T13:41:43.638Z] ---
+Query: explain morries traversal
+Error: MistralAPIError: HTTP error! status: 401 Response: 
+{"detail":"Unauthorized"}
+    at MistralClient._request (file:///C:/Users/Dell/Documents/visual_fast/server/node_modules/@mistralai/mistralai/src/client.js:132:17)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async MistralClient.chat (file:///C:/Users/Dell/Documents/visual_fast/server/node_modules/@mistralai/mistralai/src/client.js:255:22)
+    at async processDSAQuery (C:\Users\Dell\Documents\visual_fast\server\llmService.js:186:26)
+    at async C:\Users\Dell\Documents\visual_fast\server\index.js:22:24
+Response: N/A
+------------------
+
+--- ERROR [2026-02-21T05:54:29.980Z] ---
+Query: explain djekstra algorithm
+Error: MistralAPIError: HTTP error! status: 401 Response: 
+{"detail":"Unauthorized"}
+    at MistralClient._request (file:///C:/Users/Dell/Documents/visual_fast/server/node_modules/@mistralai/mistralai/src/client.js:132:17)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async MistralClient.chat (file:///C:/Users/Dell/Documents/visual_fast/server/node_modules/@mistralai/mistralai/src/client.js:255:22)
+    at async processDSAQuery (C:\Users\Dell\Documents\visual_fast\server\llmService.js:186:26)
+    at async C:\Users\Dell\Documents\visual_fast\server\index.js:22:24
+Response: N/A
+------------------
+
+--- ERROR [2026-02-21T05:59:57.234Z] ---
+Query: explain likedlist
+Error: MistralAPIError: HTTP error! status: 401 Response: 
+{"detail":"Unauthorized"}
+    at MistralClient._request (file:///C:/Users/Dell/Documents/visual_fast/server/node_modules/@mistralai/mistralai/src/client.js:132:17)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async MistralClient.chat (file:///C:/Users/Dell/Documents/visual_fast/server/node_modules/@mistralai/mistralai/src/client.js:255:22)
+    at async processDSAQuery (C:\Users\Dell\Documents\visual_fast\server\llmService.js:186:26)
+    at async C:\Users\Dell\Documents\visual_fast\server\index.js:22:24
+Response: N/A
+------------------

@@ -80,7 +80,8 @@ function App() {
         setError(null);
 
         try {
-            const response = await axios.post('/api/process-query', {
+            const apiBase = import.meta.env.VITE_API_URL || '';
+            const response = await axios.post(`${apiBase}/api/process-query`, {
                 query,
                 history: currentHistory.slice(-5)
             });

@@ -6,14 +6,14 @@ function getMistralClient() {
     if (mistralInstance) return mistralInstance;
 
     const key = process.env.MISTRAL_API_KEY;
-    if (key && key !== 'your_mistral_api_key_here' && key.length > 10) {
+    if (key && key !== 'your_api_key_here' && key.length > 10) {
         console.log(`[Mistral SDK] Initializing with key ending in ...${key.slice(-4)}`);
         // Handle both possible export patterns for the SDK
         const ClientClass = Mistral.default || Mistral;
         mistralInstance = new ClientClass(key);
         return mistralInstance;
     }
-    console.warn('[Mistral SDK] No valid API key found in process.env');
+    console.warn('[Mistral SDK] No valid API key found or placeholder "your_api_key_here" detected.');
     return null;
 }
 
@@ -123,8 +123,10 @@ function extractJSON(text) {
 async function processDSAQuery(query, history = []) {
     const mistral = getMistralClient();
     if (!mistral) {
-        return getMockBubbleSort("Mistral API Key is missing. Ensure MISTRAL_API_KEY is set in server/.env");
+        return getMockBubbleSort("Mistral API Key is missing or invalid. Please update the MISTRAL_API_KEY in server/.env with a real key from https://console.mistral.ai/");
     }
+
+    let responseContent = null;
 
     const systemPrompt = `
 You are a Data Structures and Algorithms (DSA) visualization expert. 
@@ -188,7 +190,7 @@ DATA GUIDELINES (STRICT ADHERENCE):
             temperature: 0.2
         });
 
-        const responseContent = response.choices[0].message.content;
+        responseContent = response.choices?.[0]?.message?.content;
         const parsed = extractJSON(responseContent);
 
         // Stage 2: Validation
@@ -199,14 +201,15 @@ DATA GUIDELINES (STRICT ADHERENCE):
         return validatedData;
 
     } catch (error) {
-        console.error(`[Mistral AI] Pipeline Error:`, error.message);
-        // Log the failure for debugging
+        console.error(`[Mistral AI] Pipeline Error:`, error && error.message ? error.message : error);
+        // Log the failure for debugging with safe access to responseContent
         const fs = require('fs');
-        const errorLog = `\n--- ERROR [${new Date().toISOString()}] ---\nQuery: ${query}\nError: ${error.message}\n` +
-            `Response: ${responseContent || "N/A"}\n------------------\n`;
-        fs.appendFileSync('server_error.log', errorLog);
+        const respInfo = (error && error.response) ? JSON.stringify(error.response) : (responseContent || "N/A");
+        const errorLog = `\n--- ERROR [${new Date().toISOString()}] ---\nQuery: ${query}\nError: ${error && error.stack ? error.stack : error}\n` +
+            `Response: ${respInfo}\n------------------\n`;
+        try { fs.appendFileSync('server_error.log', errorLog); } catch (e) { console.error('Failed to write error log', e); }
 
-        return getMockBubbleSort(`Mistral AI Error [v2.1]: ${error.message}. Showing fallback demo.`);
+        return getMockBubbleSort(`Mistral AI Error [v2.1]: ${error && error.message ? error.message : String(error)}. Showing fallback demo.`);
     }
 }
 
