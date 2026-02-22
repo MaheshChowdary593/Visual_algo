@@ -11,7 +11,12 @@ app.use(cors());
 app.use(express.json());
 
 app.get('/', (req, res) => {
-    res.send('DSA Visualizer API is running');
+    const hasApiKey = !!process.env.MISTRAL_API_KEY && process.env.MISTRAL_API_KEY !== 'YOUR_MISTRAL_API_KEY_HERE' && process.env.MISTRAL_API_KEY !== 'your_api_key_here';
+    res.json({
+        status: 'DSA Visualizer API is running',
+        environment: process.env.NODE_ENV || 'development',
+        mistral_configured: hasApiKey
+    });
 });
 
 app.post('/api/process-query', async (req, res) => {

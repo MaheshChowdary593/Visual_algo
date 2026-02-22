@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, Send, Code, Moon, Sun, Play, Pause, RotateCcw, ChevronRight, ChevronLeft, Plus } from 'lucide-react';
+import { Search, Send, Code, Moon, Sun, Play, Pause, RotateCcw, ChevronRight, ChevronLeft, Plus, TrendingUp, Activity } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
 import ArrayVisualizer from './components/ArrayVisualizer';
@@ -11,6 +11,7 @@ import GraphVisualizer from './components/GraphVisualizer';
 import MapVisualizer from './components/MapVisualizer';
 import RecursionVisualizer from './components/RecursionVisualizer';
 import CodePanel from './components/CodeModal';
+import ComplexityChart from './components/ComplexityChart';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
@@ -18,6 +19,8 @@ function App() {
     const [query, setQuery] = useState('');
     const [isDark, setIsDark] = useState(true);
     const [isCodeModalOpen, setIsCodeModalOpen] = useState(false);
+    const [isChartOpen, setIsChartOpen] = useState(false);
+    const [chartType, setChartType] = useState('Time'); // 'Time' or 'Space'
     const [messages, setMessages] = useState([
         { role: 'assistant', text: 'Hello! I can help you visualize DSA concepts. Try asking "Explain bubble sort in detail".' }
     ]);
@@ -25,6 +28,8 @@ function App() {
     const [error, setError] = useState(null);
 
     // Visualization State
+    const [sidebarWidth, setSidebarWidth] = useState(400);
+    const [isResizing, setIsResizing] = useState(false);
     const [vizData, setVizData] = useState(null);
     const [codeContent, setCodeContent] = useState('');
     const [currentStep, setCurrentStep] = useState(0);
@@ -55,6 +60,40 @@ function App() {
         }
         return () => clearTimeout(playbackRef.current);
     }, [isPlaying, currentStep, vizData]);
+
+    const startResizing = (e) => {
+        setIsResizing(true);
+        e.preventDefault();
+    };
+
+    const stopResizing = () => {
+        setIsResizing(false);
+    };
+
+    const resize = (e) => {
+        if (isResizing) {
+            const newWidth = e.clientX;
+            const maxWidth = window.innerWidth / 2;
+            const minWidth = 320;
+            if (newWidth >= minWidth && newWidth <= maxWidth) {
+                setSidebarWidth(newWidth);
+            }
+        }
+    };
+
+    useEffect(() => {
+        if (isResizing) {
+            window.addEventListener('mousemove', resize);
+            window.addEventListener('mouseup', stopResizing);
+        } else {
+            window.removeEventListener('mousemove', resize);
+            window.removeEventListener('mouseup', stopResizing);
+        }
+        return () => {
+            window.removeEventListener('mousemove', resize);
+            window.removeEventListener('mouseup', stopResizing);
+        };
+    }, [isResizing]);
 
     const handleNewChat = () => {
         setMessages([
@@ -123,7 +162,10 @@ function App() {
     return (
         <div className="flex h-screen overflow-hidden bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-300">
             {/* Sidebar for Chat */}
-            <aside className="w-80 border-r border-slate-200 dark:border-slate-800 flex flex-col bg-white dark:bg-slate-900 shadow-xl z-10">
+            <aside
+                className="border-r border-slate-200 dark:border-slate-800 flex flex-col bg-white dark:bg-slate-900 shadow-xl z-20 relative"
+                style={{ width: `${sidebarWidth}px`, minWidth: '320px' }}
+            >
                 <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex flex-col space-y-3">
                     <div className="flex justify-between items-center">
                         <h1 className="text-xl font-bold bg-gradient-to-r from-blue-500 to-cyan-400 bg-clip-text text-transparent">
@@ -192,10 +234,18 @@ function App() {
                         </button>
                     </div>
                 </div>
+
+                {/* Resizing Handle */}
+                <div
+                    onMouseDown={startResizing}
+                    className="absolute top-0 -right-1 w-2 h-full cursor-col-resize z-30 group"
+                >
+                    <div className={`w-1 h-full mx-auto transition-colors ${isResizing ? 'bg-blue-500' : 'bg-transparent group-hover:bg-blue-400/30'}`} />
+                </div>
             </aside>
 
             {/* Main Visualization Area */}
-            <main className="flex-1 relative flex flex-col items-center justify-start p-6">
+            <main className="flex-1 relative flex flex-col items-center justify-center p-4">
                 <div className="absolute top-4 right-4 space-x-2 z-20">
                     <button
                         onClick={() => setIsCodeModalOpen(true)}
@@ -207,7 +257,7 @@ function App() {
                     </button>
                 </div>
 
-                <div className="w-full max-w-6xl h-full flex flex-col">
+                <div className="w-full max-w-6xl h-full flex flex-col justify-center">
                     <AnimatePresence mode="wait">
                         {vizData ? (
                             <motion.div
@@ -218,19 +268,49 @@ function App() {
                                 className="w-full flex-1 flex flex-col relative"
                             >
                                 {/* Title at Top */}
-                                <div className="w-full text-center py-2 border-b border-slate-100 dark:border-slate-800/50 mb-2">
-                                    <div className="flex items-center justify-center space-x-3">
-                                        <h2 className="text-xl font-black text-slate-900 dark:text-white">{vizData.title}</h2>
-                                        <div className="flex space-x-3 text-[10px] font-black uppercase tracking-widest text-blue-500 opacity-80">
-                                            <span>Time: {vizData.timeComplexity}</span>
-                                            <span>Space: {vizData.spaceComplexity}</span>
+                                <div className="w-full text-center py-2 border-b border-slate-100 dark:border-slate-800/50 mb-2 bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm rounded-t-[3rem]">
+                                    <div className="flex flex-col items-center justify-center space-y-2">
+                                        <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tighter">{vizData.title}</h2>
+
+                                        <div className="flex space-x-3">
+                                            <button
+                                                onClick={() => {
+                                                    setChartType('Time');
+                                                    setIsChartOpen(true);
+                                                }}
+                                                className="group relative flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-xl shadow-lg shadow-blue-500/20 hover:scale-105 active:scale-95 transition-all text-sm"
+                                            >
+                                                <div className="flex flex-col items-start leading-none">
+                                                    <span className="text-[8px] font-black uppercase tracking-widest opacity-70 group-hover:opacity-100">Time Complexity</span>
+                                                    <span className="font-black">{vizData.timeComplexity}</span>
+                                                </div>
+                                                <div className="p-1 bg-white/20 rounded-lg group-hover:bg-white/30 transition-colors">
+                                                    <TrendingUp size={14} />
+                                                </div>
+                                            </button>
+
+                                            <button
+                                                onClick={() => {
+                                                    setChartType('Space');
+                                                    setIsChartOpen(true);
+                                                }}
+                                                className="group flex items-center space-x-2 px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white rounded-xl border border-slate-200 dark:border-slate-700 shadow-md text-sm hover:scale-105 active:scale-95 transition-all"
+                                            >
+                                                <div className="flex flex-col items-start leading-none">
+                                                    <span className="text-[8px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Space Complexity</span>
+                                                    <span className="font-black">{vizData.spaceComplexity}</span>
+                                                </div>
+                                                <div className="p-1 bg-blue-500/10 rounded-lg group-hover:bg-blue-500/20 transition-colors">
+                                                    <Activity size={14} className="text-blue-500" />
+                                                </div>
+                                            </button>
                                         </div>
                                     </div>
-                                    <p className="text-slate-500 text-xs mt-1">{vizData.description}</p>
+                                    <p className="text-slate-500 text-xs mt-2 max-w-2xl mx-auto px-4 font-medium opacity-80">{vizData.description}</p>
                                 </div>
 
                                 {/* Main Visualizer Content */}
-                                <div className="flex-[2] w-full max-h-[55vh] bg-white dark:bg-slate-900/40 rounded-[3rem] p-4 border border-slate-200 dark:border-slate-800 shadow-2xl overflow-x-auto overflow-y-hidden flex items-center justify-center relative scrollbar-hide">
+                                <div className="flex-1 w-full max-h-[60vh] bg-white dark:bg-slate-900/40 rounded-[3rem] p-4 border border-slate-200 dark:border-slate-800 shadow-2xl overflow-x-auto overflow-y-hidden flex items-center justify-center relative scrollbar-hide">
                                     <AnimatePresence>
                                         {isLoading && (
                                             <motion.div
@@ -414,6 +494,13 @@ function App() {
                 onClose={() => setIsCodeModalOpen(false)}
                 code={codeContent || "// No code available yet. Try asking for a concept!"}
                 title={vizData?.title || "Implementation"}
+            />
+
+            <ComplexityChart
+                isOpen={isChartOpen}
+                onClose={() => setIsChartOpen(false)}
+                currentComplexity={chartType === 'Time' ? vizData?.timeComplexity : vizData?.spaceComplexity}
+                type={chartType}
             />
         </div>
     );
